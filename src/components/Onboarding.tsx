@@ -1,23 +1,35 @@
 import { useState } from 'react';
-import { MapPin, User, ChevronRight, Store, ShieldCheck } from 'lucide-react';
+import { MapPin, User, ChevronRight, Store, ChevronRight as ChevronRightIcon, Crown, LogOut, ChefHat, Wallet } from 'lucide-react';
 import { MUNICIPIOS, type Municipio } from '@/data/appData';
-import { BusinessAuthModal } from './BusinessAuthModal';
+import { BusinessAuthModal, type BusinessAuthSession, clearStoredSession, getStoredSession } from './BusinessAuthModal';
+import { formatCOP } from '@/hooks/useWallet';
 
 interface OnboardingProps {
   onLogin: (method: 'google' | 'phone', phone?: string) => void;
   onCompleteProfile: (nombre: string, municipio: string, direccion: string) => void;
   loginMethod: 'google' | 'phone' | null;
   onBusinessAuthorized: () => void;
+  onBusinessLogout: () => void;
+  businessSession: BusinessAuthSession | null;
 }
 
-export function Onboarding({ onLogin, onCompleteProfile, loginMethod, onBusinessAuthorized }: OnboardingProps) {
+const DEMO_MERCHANT_BALANCE = 45000;
+
+export function Onboarding({
+  onLogin,
+  onCompleteProfile,
+  loginMethod,
+  onBusinessAuthorized,
+  onBusinessLogout,
+  businessSession,
+}: OnboardingProps) {
   const [step, setStep] = useState<'welcome' | 'profile'>('welcome');
   const [nombre, setNombre] = useState('');
   const [municipio, setMunicipio] = useState<Municipio>('Sibundoy');
   const [direccion, setDireccion] = useState('');
   const [authModalOpen, setAuthModalOpen] = useState(false);
 
-  /* ---- Welcome screen: two buttons only ---- */
+  /* ---- Welcome screen ---- */
   if (step === 'welcome') {
     return (
       <div className="min-h-screen bg-bg flex flex-col justify-center px-6 py-10 safe-top safe-bottom">
@@ -38,31 +50,42 @@ export function Onboarding({ onLogin, onCompleteProfile, loginMethod, onBusiness
           </p>
         </div>
 
-        {/* Two entry buttons */}
-        <div className="space-y-3 max-w-sm w-full mx-auto">
-          <button
-            onClick={() => {
-              onLogin('google');
-              setStep('profile');
-            }}
-            className="tap-highlight w-full rounded-2xl bg-emerald py-4 text-base font-bold text-white shadow-xl shadow-emerald/30 flex items-center justify-center gap-2.5"
-          >
-            <ChevronRight size={20} />
-            Continuar como Cliente
-          </button>
+        {/* Session-aware content */}
+        {businessSession ? (
+          <BusinessWelcome
+            session={businessSession}
+            onEnter={onBusinessAuthorized}
+            onLogout={onBusinessLogout}
+          />
+        ) : (
+          /* Default two-button layout for new clients */
+          <div className="space-y-3 max-w-sm w-full mx-auto">
+            <button
+              onClick={() => {
+                onLogin('google');
+                setStep('profile');
+              }}
+              className="tap-highlight w-full rounded-2xl bg-emerald py-4 text-base font-bold text-white shadow-xl shadow-emerald/30 flex items-center justify-center gap-2.5"
+            >
+              <ChevronRight size={20} />
+              Continuar como Cliente
+            </button>
 
-          <button
-            onClick={() => setAuthModalOpen(true)}
-            className="tap-highlight w-full rounded-2xl bg-surface-2 border border-gold/25 py-4 text-base font-bold text-gold-light flex items-center justify-center gap-2.5"
-          >
-            <Store size={20} />
-            ¿Tienes un negocio? Soy Comercio Aliado
-          </button>
-        </div>
+            <button
+              onClick={() => setAuthModalOpen(true)}
+              className="tap-highlight w-full rounded-2xl bg-surface-2 border border-gold/25 py-4 text-base font-bold text-gold-light flex items-center justify-center gap-2.5"
+            >
+              <Store size={20} />
+              ¿Tienes un negocio? Soy Comercio Aliado
+            </button>
+          </div>
+        )}
 
-        <p className="text-center text-xs text-white/30 mt-6 max-w-xs mx-auto">
-          Al continuar aceptas los términos de servicio y la política de privacidad de Moss.
-        </p>
+        {!businessSession && (
+          <p className="text-center text-xs text-white/30 mt-6 max-w-xs mx-auto">
+            Al continuar aceptas los términos de servicio y la política de privacidad de Moss.
+          </p>
+        )}
 
         <div className="weave-divider mx-8 mt-8" />
 
@@ -159,6 +182,96 @@ export function Onboarding({ onLogin, onCompleteProfile, loginMethod, onBusiness
       </div>
 
       <div className="weave-divider mx-4 mt-2" />
+    </div>
+  );
+}
+
+/* ---- Business welcome card (super admin or merchant) ---- */
+function BusinessWelcome({
+  session,
+  onEnter,
+  onLogout,
+}: {
+  session: BusinessAuthSession;
+  onEnter: () => void;
+  onLogout: () => void;
+}) {
+  const isAdmin = session.role === 'super_admin';
+  const displayName = session.merchantName ?? (isAdmin ? 'Felipe Alejandro' : 'Comercio');
+
+  return (
+    <div className="max-w-sm w-full mx-auto space-y-4">
+      {/* Welcome card */}
+      <div
+        className={`rounded-3xl p-6 text-center ${
+          isAdmin
+            ? 'card-surface border border-gold/40'
+            : 'card-surface border border-emerald/30'
+        }`}
+      >
+        <div
+          className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl ${
+            isAdmin ? 'bg-gold/15' : 'bg-emerald/15'
+          }`}
+        >
+          {isAdmin ? (
+            <Crown size={32} className="text-gold-light" />
+          ) : (
+            <Store size={32} className="text-emerald" />
+          )}
+        </div>
+
+        <h2 className="text-xl font-black text-white font-display">
+          ¡Hola, {displayName}! 👋
+        </h2>
+        <p className="text-sm text-white/50 mt-1.5">
+          {isAdmin
+            ? 'Super Administrador de Moss activo'
+            : 'Tu negocio está en línea y recibiendo pedidos'}
+        </p>
+      </div>
+
+      {/* Primary action button */}
+      <button
+        onClick={onEnter}
+        className={`tap-highlight w-full rounded-2xl py-4 text-base font-bold text-white shadow-lg flex items-center justify-center gap-2.5 active:scale-[0.98] transition ${
+          isAdmin
+            ? 'bg-gold text-bg shadow-gold/30'
+            : 'bg-emerald shadow-emerald/30'
+        }`}
+      >
+        {isAdmin ? (
+          <>
+            Entrar a mi Panel de Control <ChevronRightIcon size={20} />
+          </>
+        ) : (
+          <>
+            <ChefHat size={20} />
+            Ir a mi Cocina / Pedidos <ChevronRightIcon size={20} />
+          </>
+        )}
+      </button>
+
+      {/* Merchant balance */}
+      {!isAdmin && (
+        <div className="flex items-center justify-center gap-2 rounded-2xl bg-surface-2 px-4 py-3 border border-white/10">
+          <Wallet size={16} className="text-emerald" />
+          <span className="text-xs text-white/40">Saldo disponible:</span>
+          <span className="text-sm font-bold text-emerald">{formatCOP(DEMO_MERCHANT_BALANCE)}</span>
+        </div>
+      )}
+
+      {/* Secondary: change account / logout */}
+      <button
+        onClick={() => {
+          clearStoredSession();
+          onLogout();
+        }}
+        className="tap-highlight w-full rounded-2xl bg-surface-2/50 border border-white/5 py-3 text-sm font-medium text-white/40 flex items-center justify-center gap-2 hover:text-white/60 transition"
+      >
+        <LogOut size={16} />
+        Cambiar de cuenta o salir
+      </button>
     </div>
   );
 }

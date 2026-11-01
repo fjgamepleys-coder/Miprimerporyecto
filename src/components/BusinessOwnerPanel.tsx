@@ -54,7 +54,7 @@ export function BusinessOwnerPanel({ session, onLogout }: BusinessOwnerPanelProp
               {admin ? 'Administración General' : 'Panel de Negocio'}
             </h1>
             <p className="text-[11px] text-white/40">
-              {admin ? 'Super Admin - Control total' : 'Asadero El Valle'}
+              {admin ? 'Super Admin - Control total' : (session.merchantName ?? 'Comercio Aliado')}
             </p>
           </div>
         </div>

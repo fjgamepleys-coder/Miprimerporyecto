@@ -14,6 +14,7 @@ export interface BusinessAuthSession {
   role: BusinessRole;
   phone?: string;
   merchantId?: string;
+  merchantName?: string;
   ts: number;
 }
 
@@ -92,7 +93,7 @@ export function BusinessAuthModal({ open, onClose, onAuthorized }: BusinessAuthM
     try {
       // 1. ROL SUPER ADMIN (Tus datos)
       if (formattedPhone === SUPER_ADMIN_PHONE && password === SUPER_ADMIN_PASSWORD) {
-        const session: BusinessAuthSession = { role: 'super_admin', phone: formattedPhone, ts: Date.now() };
+        const session: BusinessAuthSession = { role: 'super_admin', phone: formattedPhone, merchantName: 'Felipe Alejandro', ts: Date.now() };
         loginUser(session);
         setLoading(false);
         onClose();
@@ -103,7 +104,7 @@ export function BusinessAuthModal({ open, onClose, onAuthorized }: BusinessAuthM
       // 2. ROL COMERCIO ALIADO
       const merchant = await checkMerchantCredentials(formattedPhone, password);
       if (merchant) {
-        const session: BusinessAuthSession = { role: 'merchant', merchantId: merchant.id, ts: Date.now() };
+        const session: BusinessAuthSession = { role: 'merchant', merchantId: merchant.id, merchantName: merchant.name, ts: Date.now() };
         loginUser(session);
         setLoading(false);
         onClose();

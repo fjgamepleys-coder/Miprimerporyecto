@@ -29,43 +29,8 @@ function App() {
     const stored = getStoredSession();
     if (stored) {
       setSession(stored);
-      setBusinessPanelOpen(true);
     }
   }, []);
-
-  // Onboarding / auth gate
-  if (!auth.isLoggedIn) {
-    return (
-      <Onboarding
-        onLogin={auth.login}
-        onCompleteProfile={auth.completeProfile}
-        loginMethod={auth.user?.loginMethod ?? null}
-        onBusinessAuthorized={() => {
-          const s = getStoredSession();
-          if (s) {
-            setSession(s);
-            setBusinessPanelOpen(true);
-          }
-        }}
-      />
-    );
-  }
-  if (auth.isLoggedIn && !auth.isProfileComplete) {
-    return (
-      <Onboarding
-        onLogin={auth.login}
-        onCompleteProfile={auth.completeProfile}
-        loginMethod={auth.user?.loginMethod ?? null}
-        onBusinessAuthorized={() => {
-          const s = getStoredSession();
-          if (s) {
-            setSession(s);
-            setBusinessPanelOpen(true);
-          }
-        }}
-      />
-    );
-  }
 
   // Business owner / admin panel (shielded)
   if (businessPanelOpen && session) {
@@ -76,6 +41,28 @@ function App() {
           clearStoredSession();
           setSession(null);
           setBusinessPanelOpen(false);
+        }}
+      />
+    );
+  }
+
+  // Onboarding / auth gate — a business session takes priority over client auth
+  if (session || !auth.isLoggedIn || (auth.isLoggedIn && !auth.isProfileComplete)) {
+    return (
+      <Onboarding
+        onLogin={auth.login}
+        onCompleteProfile={auth.completeProfile}
+        loginMethod={auth.user?.loginMethod ?? null}
+        businessSession={session}
+        onBusinessAuthorized={() => {
+          const s = getStoredSession();
+          if (s) {
+            setSession(s);
+            setBusinessPanelOpen(true);
+          }
+        }}
+        onBusinessLogout={() => {
+          setSession(null);
         }}
       />
     );
